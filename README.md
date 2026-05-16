@@ -97,7 +97,7 @@ If you use this repository or build upon this work, please cite the associated p
   title={CAN-TEMPO: Unsupervised CAN Bus Intrusion Detection via Temporal Multi-Period Oscillation Encoding},
   author={Oualil, Soufiane and AIT Yahia, Issam and EL Kamili, Mohamed and Fardousse, Khalid and Berrada, Ismail},
   journal={Technologies},
-  year={2026}
+  year={under review}
 }
 ```
 
