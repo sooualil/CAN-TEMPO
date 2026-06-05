@@ -33,23 +33,6 @@ This design enables the detection of both abrupt and subtle deviations in CAN co
 
 ---
 
-## Experimental Evaluation
-
-CAN-TEMPO was evaluated on two widely used automotive intrusion detection benchmarks:
-- Car-Hacking Dataset (CHD)
-- Survival Attack Dataset (SAD)
-
-The framework was tested across multiple attack categories including:
-- DoS / Flooding
-- Fuzzy attacks
-- Gear spoofing
-- RPM spoofing
-- Malfunction attacks
-
-Experimental results demonstrate that CAN-TEMPO consistently outperforms representative recurrent, convolutional, graph-based, and transformer-based baselines while maintaining strong robustness across attack types and vehicle platforms.
-
----
-
 ## Main Contributions
 
 - Explicit modeling of periodic CAN communication structure
@@ -61,36 +44,195 @@ Experimental results demonstrate that CAN-TEMPO consistently outperforms represe
 
 ---
 
-## Datasets
+## Experimental Evaluation
 
-### Car-Hacking Dataset (CHD)
-The CHD benchmark contains CAN bus recordings collected from a real vehicle under multiple injection attack scenarios, including DoS, Fuzzy, Gear spoofing, and RPM spoofing attacks.
+CAN-TEMPO was evaluated on two widely used automotive intrusion detection benchmarks:
+- Car-Hacking Dataset (CHD)
+- Survival Attack Dataset (SAD)
 
-### Survival Attack Dataset (SAD)
-The SAD benchmark contains CAN recordings collected from multiple vehicles under Flooding, Fuzzy, and Malfunction attacks.
-
-Unlike datasets that do not preserve timestamp information, both CHD and SAD retain the temporal structure required for modeling inter-arrival dynamics and periodic communication behavior central to CAN-TEMPO.
+The framework was tested across multiple attack categories including DoS/Flooding, Fuzzy attacks, Gear spoofing, RPM spoofing, and Malfunction attacks. Experimental results demonstrate that CAN-TEMPO consistently outperforms representative recurrent, convolutional, graph-based, and transformer-based baselines while maintaining strong robustness across attack types and vehicle platforms.
 
 ---
 
 ## Repository Structure
 
-```text
+```
 CAN-TEMPO/
-├── datasets/
 ├── models/
-├── training/
-├── evaluation/
+│   ├── can_tempo.py       # CAN-TEMPO (canonical)
+│   ├── autocoder.py       # AutoCoder baseline
+│   ├── cgts.py            # CGTS baseline
+│   ├── conv_ae.py         # CNN-AE / LSTM-AE / GRU-AE baselines
+│   ├── rl_ids.py          # RL-IDS baseline
+│   └── srcae.py           # DESC-IDS baseline
+├── data/
+│   ├── dataset_car_hacking.py
+│   ├── dataset_survival.py
+│   └── preprocess.py
 ├── utils/
-├── assets/
-└── README.md
+│   ├── metrics.py
+│   └── seed.py
+├── train_cantempo.py
+├── train_baselines.py
+├── evaluate.py
+├── download_data.py
+├── setup_env.py
+└── requirements.txt
 ```
 
 ---
 
-## Citation
+## Datasets
 
-If you use this repository or build upon this work, please cite the associated paper:
+### Automatic download (recommended)
+
+```bash
+# Download both datasets
+python download_data.py
+
+# Or individually
+python download_data.py --dataset chd
+python download_data.py --dataset sad
+
+# Manual mode — provide your own Dropbox URL
+python download_data.py --dataset chd --url "https://www.dropbox.com/..."
+python download_data.py --dataset sad --url "https://www.dropbox.com/..."
+```
+
+The script fetches the download links and extraction password directly from the dataset pages, extracts the archives, and places everything under `./data/raw/` automatically.
+
+### Manual placement
+
+If you prefer to place the files manually, the expected structure under `data/raw/` is:
+
+```
+data/raw/
+├── Car-Hacking/
+│   ├── benign_dataset.csv          ← normal traffic (generated from normal_run_data.txt by the script)
+│   ├── DoS_dataset.csv
+│   ├── Fuzzy_dataset.csv
+│   ├── RPM_dataset.csv
+│   ├── gear_dataset.csv
+│   └── normal_run_data/
+│       └── normal_run_data.txt     ← raw normal traffic (used to generate benign_dataset.csv)
+└── Survival/
+    ├── Sonata/
+    │   ├── FreeDrivingData_20180323_SONATA.txt   ← normal traffic
+    │   ├── Flooding_dataset_SONATA.txt
+    │   ├── Fuzzy_dataset_SONATA.txt
+    │   └── Malfunction_dataset_SONATA.txt
+    ├── Soul/
+    │   ├── FreeDrivingData_20180112_KIA.txt
+    │   ├── Flooding_dataset_KIA.txt
+    │   ├── Fuzzy_dataset_KIA.txt
+    │   └── Malfunction153_dataset_KIA.txt
+    └── Spark/
+        ├── FreeDrivingData_20171231_Spark.txt
+        ├── Flooding_dataset_Spark.txt
+        ├── Fuzzy_dataset_Spark.txt
+        └── Malfunction18E_dataset_Spark.txt
+```
+
+**Note on `benign_dataset.csv`**: if you place CHD files manually and only have `normal_run_data.txt`, generate the CSV with:
+```bash
+cat data/raw/Car-Hacking/normal_run_data/normal_run_data.txt \
+  | awk -v OFS="," '{print $2,$4,$7,$8,$9,$10,$11,$12,$13,$14,$15,"R"}' \
+  > data/raw/Car-Hacking/benign_dataset.csv
+```
+
+**Car-Hacking Dataset (CHD)** — CAN bus recordings collected from a real vehicle under multiple injection attack scenarios, including DoS, Fuzzy, Gear spoofing, and RPM spoofing attacks.
+https://ocslab.hksecurity.net/Datasets/car-hacking-dataset
+
+**Survival Attack Dataset (SAD)** — CAN recordings collected from multiple vehicle platforms (Sonata, Soul, Spark) under Flooding, Fuzzy, and Malfunction attacks.
+https://ocslab.hksecurity.net/Datasets/survival-ids
+
+---
+
+## Installation
+
+```bash
+python setup_env.py          # creates .venv and installs dependencies
+source .venv/bin/activate    # Linux / macOS
+.venv\Scripts\activate       # Windows
+```
+
+Or manually:
+
+```bash
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate    # Linux / macOS
+.venv\Scripts\activate       # Windows
+
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Requires Python 3.10+ and a CUDA-capable GPU. PyTorch will be installed with CUDA 12.1 support by default — if your setup differs, install the appropriate torch wheel from https://pytorch.org/get-started/locally before running `pip install -r requirements.txt`.
+
+---
+
+## Usage
+
+### Train CAN-TEMPO
+
+```bash
+# Car-Hacking Dataset
+python train_cantempo.py --dataset chd --data_root ./data/raw --device cuda:0
+
+# Survival Attack Dataset
+python train_cantempo.py --dataset sad --data_root ./data/raw --device cuda:0
+
+# Custom hyperparameters
+python train_cantempo.py --dataset chd --seed 123 --d_model 256 --n_layers 4 \
+                         --lambda_stat 4.0 --lambda_fft 0.1 --device cuda:1
+```
+
+### Train a Baseline
+
+```bash
+python train_baselines.py --model cnn_ae   --dataset chd --data_root ./data/raw
+python train_baselines.py --model lstm_ae  --dataset sad --data_root ./data/raw
+python train_baselines.py --model rlids    --dataset chd --data_root ./data/raw --device cuda:1
+python train_baselines.py --model descids  --dataset sad --data_root ./data/raw --seed 7
+```
+
+Supported models: `cnn_ae`, `lstm_ae`, `gru_ae`, `autocoder`, `cgts`, `descids`, `rlids`
+
+Use `--epochs N` to override the default epoch count for any model. For `rlids`, this overrides all phases (GAN, teacher, student).
+
+> **Note:** CGTS requires `torch_geometric`. Install it separately following the instructions at https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html before running CGTS.
+
+### Evaluate a Saved Checkpoint
+
+```bash
+python evaluate.py --model cantempo \
+                   --checkpoint ./checkpoints/cantempo_chd_seed42.pt \
+                   --dataset chd --data_root ./data/raw
+```
+
+---
+
+## Hyperparameters
+
+| Parameter | Value |
+|-----------|-------|
+| Window size $N$ | 100 |
+| Stride | 50 |
+| Embedding dim $d$ | 256 |
+| TMPO blocks $L$ | 4 |
+| Dominant periods $K$ | 2 |
+| Batch size | 64 |
+| Learning rate | $10^{-4}$ |
+| Epochs | 50 |
+| $\lambda_{\text{stat}}$ | 4.0 |
+| $\lambda_{\text{fft}}$ | 0.1 |
+| Threshold percentile | 95 |
+
+---
+
+## Citation
 
 ```bibtex
 @article{oualil2026cantempo,
